@@ -1,0 +1,9 @@
+# 原 Auto-Redbook-Skills Python 脚本依赖
+# 说明：不要命名为 requirements.txt，否则 Vercel 会误判并尝试安装 Python 依赖。
+
+markdown>=3.4.0
+PyYAML>=6.0
+playwright>=1.40.0
+xhs>=0.4.0
+python-dotenv>=1.0.0
+requests>=2.28.0

@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "汇职小红书发布助手",
+  "version": "0.1.0",
+  "description": "将汇职驾校分享活动生成的小红书草稿自动填入创作者发布页。",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["https://creator.xiaohongshu.com/publish/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

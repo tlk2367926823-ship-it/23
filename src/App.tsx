@@ -11,7 +11,8 @@ const progressSteps = ["分析活动入口", "生成小红书标题", "匹配分
 
 const platformOptions: Array<{ id: SharePlatform; label: string; hint: string }> = [
   { id: "redbook", label: "小红书", hint: "图文种草" },
-  { id: "dianping", label: "美团/大众点评", hint: "门店评价" },
+  { id: "meituan", label: "美团", hint: "门店评价" },
+  { id: "dianping", label: "大众点评", hint: "探店评价" },
 ];
 
 function isWechatBrowser() {
@@ -43,8 +44,16 @@ function getDownloadName(url: string) {
   return cleanUrl.split("/").pop() || "huizhi-share.png";
 }
 
+function isReviewPlatform(platform: SharePlatform) {
+  return platform === "meituan" || platform === "dianping";
+}
+
+function getReviewPlatformName(platform: SharePlatform) {
+  return platform === "meituan" ? "美团" : "大众点评";
+}
+
 function getPlatformPayload(draft: ShareDraft, platform: SharePlatform) {
-  if (platform === "dianping") {
+  if (isReviewPlatform(platform)) {
     return {
       title: "深圳汇职驾校学车体验",
       body: `${draft.body}\n\n整体体验比较真实，适合正在深圳准备学车、想先了解训练场和教练服务的朋友参考。`,
@@ -121,8 +130,8 @@ export default function App() {
     if (step === "publish") {
       setPublishMessage(
         result.success
-          ? sharePlatform === "dianping"
-            ? "点评文案已复制，到美团/大众点评后长按粘贴即可。"
+          ? isReviewPlatform(sharePlatform)
+            ? `${getReviewPlatformName(sharePlatform)}评价文案已复制，到 App 后长按粘贴即可。`
             : "全部文案已复制，到小红书后长按粘贴即可。"
           : result.message || "当前浏览器不支持自动复制，请手动复制文案。",
       );
@@ -133,8 +142,8 @@ export default function App() {
     await copyDraft();
     downloadCurrentAsset();
     setPublishMessage(
-      sharePlatform === "dianping"
-        ? "点评文案已复制，图片已开始保存。保存完成后点击“打开美团/大众点评”。"
+      isReviewPlatform(sharePlatform)
+        ? `${getReviewPlatformName(sharePlatform)}评价文案已复制，图片已开始保存。保存完成后点击“打开${getReviewPlatformName(sharePlatform)}”。`
         : "全部文案已复制，图片已开始保存。保存完成后点击“一键发布小红书”。",
     );
   }
@@ -249,33 +258,30 @@ export default function App() {
     }
   }
 
-  async function openDianpingPublish() {
+  async function openReviewPlatformPublish(platform: Extract<SharePlatform, "meituan" | "dianping">) {
     if (!draft) return;
     setPublishMessage("");
-    const platformPayload = getPlatformPayload(draft, "dianping");
+    const platformName = getReviewPlatformName(platform);
+    const platformPayload = getPlatformPayload(draft, platform);
 
     await new CopyPublisher().publish({
       ...platformPayload,
       assets: [asset.url],
     });
     setCopied(true);
-    setPublishMessage("点评文案已复制。正在打开美团/大众点评，请找到深圳汇职驾校门店后粘贴发布评价。");
+    setPublishMessage(`${platformName}评价文案已复制。正在打开${platformName}，请找到深圳汇职驾校门店后粘贴发布评价。`);
 
-    window.location.href = "dianping://";
-
-    window.setTimeout(() => {
-      if (document.visibilityState === "visible") {
-        window.location.href = "imeituan://www.meituan.com";
-        setPublishMessage("大众点评未打开时，正在尝试打开美团 App。进入后搜索深圳汇职驾校并发布评价。");
-      }
-    }, 1500);
+    window.location.href = platform === "meituan" ? "imeituan://www.meituan.com" : "dianping://";
 
     window.setTimeout(() => {
       if (document.visibilityState === "visible") {
-        window.location.href = "https://www.dianping.com/search/keyword/7/0_%E6%B7%B1%E5%9C%B3%E6%B1%87%E8%81%8C%E9%A9%BE%E6%A0%A1";
-        setPublishMessage("App 未打开时，已改为打开大众点评网页。请搜索门店后粘贴评价。");
+        window.location.href =
+          platform === "meituan"
+            ? "https://www.meituan.com/s/%E6%B7%B1%E5%9C%B3%E6%B1%87%E8%81%8C%E9%A9%BE%E6%A0%A1/"
+            : "https://www.dianping.com/search/keyword/7/0_%E6%B7%B1%E5%9C%B3%E6%B1%87%E8%81%8C%E9%A9%BE%E6%A0%A1";
+        setPublishMessage(`App 未打开时，已改为打开${platformName}网页。请搜索门店后粘贴评价。`);
       }
-    }, 3100);
+    }, 1700);
   }
 
   async function openTextNoteFallback() {
@@ -339,8 +345,8 @@ export default function App() {
   }
 
   async function recommendedPublish() {
-    if (sharePlatform === "dianping") {
-      await openDianpingPublish();
+    if (sharePlatform === "meituan" || sharePlatform === "dianping") {
+      await openReviewPlatformPublish(sharePlatform);
       return;
     }
 
@@ -548,14 +554,16 @@ export default function App() {
               {isAndroid ? <Send size={30} /> : <Share2 size={30} />}
               <h2>
                 {sharePlatform === "dianping"
-                  ? "同步到美团/大众点评"
+                  ? "同步到大众点评"
+                  : sharePlatform === "meituan"
+                    ? "同步到美团"
                   : isAndroid
                     ? "安卓系统分享发布"
                     : "手机端一键分享到小红书"}
               </h2>
               <p>
-                {sharePlatform === "dianping"
-                  ? "先复制点评文案并保存图片，再打开美团/大众点评搜索门店，由用户本人确认发布评价。"
+                {isReviewPlatform(sharePlatform)
+                  ? `先复制评价文案并保存图片，再打开${getReviewPlatformName(sharePlatform)}搜索门店，由用户本人确认发布评价。`
                   : isAndroid
                     ? "优先调用手机系统分享，把图片交给小红书。若系统分享不可用，再保存图片并打开小红书相册发布。"
                     : "客户试用时请用手机打开活动页。优先使用系统分享；也可以直接尝试打开小红书 App 的发布入口。"}
@@ -569,8 +577,8 @@ export default function App() {
                   <span>
                     {copied
                       ? "文案和图片已准备"
-                      : sharePlatform === "dianping"
-                        ? "复制点评文案并保存图片"
+                      : isReviewPlatform(sharePlatform)
+                        ? "复制评价文案并保存图片"
                         : "复制文案并保存图片"}
                   </span>
                   <ChevronRight size={18} />
@@ -578,13 +586,7 @@ export default function App() {
               )}
               <button className={isAndroid ? "" : "recommended-step"} onClick={recommendedPublish}>
                 <Send size={20} />
-                <span>
-                  {sharePlatform === "dianping"
-                    ? "打开美团/大众点评"
-                    : isAndroid
-                      ? "一键发布小红书"
-                      : "一键分享到小红书"}
-                </span>
+                <span>去发布</span>
                 <ChevronRight size={18} />
               </button>
             </div>

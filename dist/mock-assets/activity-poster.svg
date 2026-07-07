@@ -1,0 +1,15 @@
+<svg width="1080" height="1440" viewBox="0 0 1080 1440" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1080" height="1440" fill="#F7F2E8"/>
+  <rect x="70" y="82" width="940" height="1276" rx="44" fill="#18211D"/>
+  <circle cx="834" cy="212" r="112" fill="#D9FF66"/>
+  <circle cx="204" cy="1148" r="156" fill="#FF6B57"/>
+  <path d="M196 426C267 332 373 285 514 285C660 285 777 337 866 442" stroke="#F7F2E8" stroke-width="34" stroke-linecap="round"/>
+  <path d="M254 522H826L910 748H170L254 522Z" fill="#F7F2E8"/>
+  <rect x="281" y="568" width="174" height="90" rx="24" fill="#8CC6FF"/>
+  <rect x="625" y="568" width="174" height="90" rx="24" fill="#8CC6FF"/>
+  <circle cx="316" cy="778" r="58" fill="#151A17"/>
+  <circle cx="764" cy="778" r="58" fill="#151A17"/>
+  <text x="134" y="1016" fill="#F7F2E8" font-size="88" font-family="Arial, sans-serif" font-weight="800">深圳汇职驾校</text>
+  <text x="134" y="1112" fill="#D9FF66" font-size="52" font-family="Arial, sans-serif" font-weight="700">扫码生成小红书分享</text>
+  <text x="134" y="1194" fill="#F7F2E8" font-size="38" font-family="Arial, sans-serif">练车体验 · 报名咨询 · 分享奖励</text>
+</svg>

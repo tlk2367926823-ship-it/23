@@ -469,7 +469,7 @@ button {
 
 .platform-toggle {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-top: 10px;
 }
@@ -496,12 +496,12 @@ button {
 }
 
 .platform-toggle strong {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .platform-toggle span {
   margin-top: 4px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
 }
 

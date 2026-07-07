@@ -5,9 +5,14 @@ import { clearShareState, createClaimCode, saveShareState } from "./localState";
 import { mockAssets, selectAsset } from "./mockAssets";
 import { CopyPublisher, DeeplinkPublisher, MockPublisher, NativeSharePublisher, XhsSchemePublisher } from "./publishers";
 import { generateShareDraft } from "./qwen";
-import type { AppStep, MockAsset, ShareDraft } from "./types";
+import type { AppStep, MockAsset, ShareDraft, SharePlatform } from "./types";
 
 const progressSteps = ["分析活动入口", "生成小红书标题", "匹配分享素材", "整理发布草稿"];
+
+const platformOptions: Array<{ id: SharePlatform; label: string; hint: string }> = [
+  { id: "redbook", label: "小红书", hint: "图文种草" },
+  { id: "dianping", label: "美团/大众点评", hint: "门店评价" },
+];
 
 function isWechatBrowser() {
   return /MicroMessenger/i.test(navigator.userAgent);
@@ -38,6 +43,22 @@ function getDownloadName(url: string) {
   return cleanUrl.split("/").pop() || "huizhi-share.png";
 }
 
+function getPlatformPayload(draft: ShareDraft, platform: SharePlatform) {
+  if (platform === "dianping") {
+    return {
+      title: "深圳汇职驾校学车体验",
+      body: `${draft.body}\n\n整体体验比较真实，适合正在深圳准备学车、想先了解训练场和教练服务的朋友参考。`,
+      tags: ["深圳驾校", "汇职驾校", "学车体验", "驾校点评"],
+    };
+  }
+
+  return {
+    title: draft.title,
+    body: draft.body,
+    tags: draft.tags,
+  };
+}
+
 export default function App() {
   const campaign = useCampaign();
   const isWechat = useMemo(() => isWechatBrowser(), []);
@@ -49,6 +70,7 @@ export default function App() {
   const [loadingIndex, setLoadingIndex] = useState(0);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [sharePlatform, setSharePlatform] = useState<SharePlatform>("redbook");
   const [published, setPublished] = useState(false);
   const [publishMessage, setPublishMessage] = useState("");
   const [claimCode, setClaimCode] = useState("");
@@ -88,14 +110,33 @@ export default function App() {
 
   async function copyDraft() {
     if (!draft) return;
+    setPublishMessage("");
     const publisher = new CopyPublisher();
+    const platformPayload = getPlatformPayload(draft, sharePlatform);
     const result = await publisher.publish({
-      title: draft.title,
-      body: draft.body,
-      tags: draft.tags,
+      ...platformPayload,
       assets: [asset.url],
     });
     setCopied(result.success);
+    if (step === "publish") {
+      setPublishMessage(
+        result.success
+          ? sharePlatform === "dianping"
+            ? "点评文案已复制，到美团/大众点评后长按粘贴即可。"
+            : "全部文案已复制，到小红书后长按粘贴即可。"
+          : result.message || "当前浏览器不支持自动复制，请手动复制文案。",
+      );
+    }
+  }
+
+  async function preparePublishMaterials() {
+    await copyDraft();
+    downloadCurrentAsset();
+    setPublishMessage(
+      sharePlatform === "dianping"
+        ? "点评文案已复制，图片已开始保存。保存完成后点击“打开美团/大众点评”。"
+        : "全部文案已复制，图片已开始保存。保存完成后点击“一键发布小红书”。",
+    );
   }
 
   function switchAsset() {
@@ -167,21 +208,6 @@ export default function App() {
             if (document.visibilityState === "visible") {
               await new DeeplinkPublisher("home").publish(payload);
               setPublishMessage("相册入口未打开时，正在改为打开小红书 App 首页。进入后点底部 + 发布。");
-
-              window.setTimeout(async () => {
-                if (document.visibilityState === "visible") {
-                  try {
-                    const shareResult = await new NativeSharePublisher().publish(payload);
-                    setPublishMessage(
-                      shareResult.success
-                        ? "文案已复制，已调起系统分享。请选择小红书继续发布。"
-                        : "文案已复制。如果发布入口打不开，请手动打开小红书点底部 + 发布。",
-                    );
-                  } catch {
-                    setPublishMessage("文案已复制。如果发布入口打不开，请手动打开小红书点底部 + 发布。");
-                  }
-                }
-              }, 1800);
             }
           }, 1600);
         }
@@ -208,16 +234,48 @@ export default function App() {
       const shareResult = await new NativeSharePublisher().publish(payload);
 
       if (shareResult.success) {
-        setPublishMessage("文案已复制，已调起系统分享。请选择小红书；如果文案没有自动带入，请长按粘贴。");
+        setPublishMessage("文案已复制，已调起系统分享。请选择小红书；如果没有进入发布页，会继续尝试打开相册入口。");
+        window.setTimeout(async () => {
+          if (document.visibilityState === "visible") {
+            await openAndroidAlbumAfterSaved();
+          }
+        }, 2500);
         return;
       }
 
-      await prepareAndroidAsset();
-      setPublishMessage("当前浏览器不支持系统分享。已改为保存图片和复制文案，请保存完成后打开小红书相册发布。");
+      await openAndroidAlbumAfterSaved();
     } catch {
-      await prepareAndroidAsset();
-      setPublishMessage("系统分享没有成功。已改为保存图片和复制文案，请保存完成后打开小红书相册发布。");
+      await openAndroidAlbumAfterSaved();
     }
+  }
+
+  async function openDianpingPublish() {
+    if (!draft) return;
+    setPublishMessage("");
+    const platformPayload = getPlatformPayload(draft, "dianping");
+
+    await new CopyPublisher().publish({
+      ...platformPayload,
+      assets: [asset.url],
+    });
+    setCopied(true);
+    setPublishMessage("点评文案已复制。正在打开美团/大众点评，请找到深圳汇职驾校门店后粘贴发布评价。");
+
+    window.location.href = "dianping://";
+
+    window.setTimeout(() => {
+      if (document.visibilityState === "visible") {
+        window.location.href = "imeituan://www.meituan.com";
+        setPublishMessage("大众点评未打开时，正在尝试打开美团 App。进入后搜索深圳汇职驾校并发布评价。");
+      }
+    }, 1500);
+
+    window.setTimeout(() => {
+      if (document.visibilityState === "visible") {
+        window.location.href = "https://www.dianping.com/search/keyword/7/0_%E6%B7%B1%E5%9C%B3%E6%B1%87%E8%81%8C%E9%A9%BE%E6%A0%A1";
+        setPublishMessage("App 未打开时，已改为打开大众点评网页。请搜索门店后粘贴评价。");
+      }
+    }, 3100);
   }
 
   async function openTextNoteFallback() {
@@ -281,6 +339,11 @@ export default function App() {
   }
 
   async function recommendedPublish() {
+    if (sharePlatform === "dianping") {
+      await openDianpingPublish();
+      return;
+    }
+
     if (isAndroid) {
       await androidSystemShareFirst();
       return;
@@ -446,6 +509,26 @@ export default function App() {
               </div>
             </article>
 
+            <div className="platform-panel">
+              <span className="eyebrow">选择发布平台</span>
+              <div className="platform-toggle">
+                {platformOptions.map((platform) => (
+                  <button
+                    className={sharePlatform === platform.id ? "active" : ""}
+                    key={platform.id}
+                    onClick={() => {
+                      setSharePlatform(platform.id);
+                      setCopied(false);
+                      setPublishMessage("");
+                    }}
+                  >
+                    <strong>{platform.label}</strong>
+                    <span>{platform.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="action-row">
               <button className="secondary-button" onClick={copyDraft}>
                 <Clipboard size={18} />
@@ -463,42 +546,47 @@ export default function App() {
           <section className="screen publish-screen">
             <div className="publish-hero">
               {isAndroid ? <Send size={30} /> : <Share2 size={30} />}
-              <h2>{isAndroid ? "安卓系统分享发布" : "手机端一键分享到小红书"}</h2>
+              <h2>
+                {sharePlatform === "dianping"
+                  ? "同步到美团/大众点评"
+                  : isAndroid
+                    ? "安卓系统分享发布"
+                    : "手机端一键分享到小红书"}
+              </h2>
               <p>
-                {isAndroid
-                  ? "优先调用手机系统分享，把图片交给小红书。若系统分享不可用，再保存图片并打开小红书相册发布。"
-                  : "客户试用时请用手机打开活动页。优先使用系统分享；也可以直接尝试打开小红书 App 的发布入口。"}
+                {sharePlatform === "dianping"
+                  ? "先复制点评文案并保存图片，再打开美团/大众点评搜索门店，由用户本人确认发布评价。"
+                  : isAndroid
+                    ? "优先调用手机系统分享，把图片交给小红书。若系统分享不可用，再保存图片并打开小红书相册发布。"
+                    : "客户试用时请用手机打开活动页。优先使用系统分享；也可以直接尝试打开小红书 App 的发布入口。"}
               </p>
             </div>
 
             <div className="publish-steps">
-              <button className="recommended-step" onClick={recommendedPublish}>
-                {isAndroid ? <Send size={20} /> : <Share2 size={20} />}
-                <span>{isAndroid ? "系统分享，选择小红书" : "手机一键分享到小红书"}</span>
-                <ChevronRight size={18} />
-              </button>
-              <button onClick={copyDraft}>
-                <Clipboard size={20} />
-                <span>{copied ? "文案已复制" : "复制小红书文案"}</span>
-                <ChevronRight size={18} />
-              </button>
-              <button onClick={() => window.open(asset.url, "_blank", "noopener,noreferrer")}>
-                <Sparkles size={20} />
-                <span>查看匹配素材</span>
-                <ChevronRight size={18} />
-              </button>
-              <button onClick={openRedbook}>
-                <Send size={20} />
-                <span>{isAndroid ? "保存后打开相册发布" : "打开小红书 App 发布入口"}</span>
-                <ChevronRight size={18} />
-              </button>
               {isAndroid && (
-                <button onClick={openTextNoteFallback}>
+                <button className="recommended-step" onClick={preparePublishMaterials}>
                   <Clipboard size={20} />
-                  <span>照片不可用时打开文字发布</span>
+                  <span>
+                    {copied
+                      ? "文案和图片已准备"
+                      : sharePlatform === "dianping"
+                        ? "复制点评文案并保存图片"
+                        : "复制文案并保存图片"}
+                  </span>
                   <ChevronRight size={18} />
                 </button>
               )}
+              <button className={isAndroid ? "" : "recommended-step"} onClick={recommendedPublish}>
+                <Send size={20} />
+                <span>
+                  {sharePlatform === "dianping"
+                    ? "打开美团/大众点评"
+                    : isAndroid
+                      ? "一键发布小红书"
+                      : "一键分享到小红书"}
+                </span>
+                <ChevronRight size={18} />
+              </button>
             </div>
 
             {publishMessage && <div className="publish-message">{publishMessage}</div>}

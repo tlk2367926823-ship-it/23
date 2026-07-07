@@ -459,6 +459,52 @@ button {
   font-weight: 800;
 }
 
+.platform-panel {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid rgba(23, 32, 27, 0.08);
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.platform-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.platform-toggle button {
+  min-width: 0;
+  padding: 12px 10px;
+  border: 1px solid rgba(23, 32, 27, 0.08);
+  border-radius: 14px;
+  color: #425044;
+  background: #f7f8f3;
+  text-align: left;
+}
+
+.platform-toggle button.active {
+  border-color: rgba(224, 255, 108, 0.95);
+  color: #17201b;
+  background: #e0ff6c;
+}
+
+.platform-toggle strong,
+.platform-toggle span {
+  display: block;
+}
+
+.platform-toggle strong {
+  font-size: 14px;
+}
+
+.platform-toggle span {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .action-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

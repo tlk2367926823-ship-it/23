@@ -2,6 +2,8 @@ export type AppStep = "intro" | "generating" | "result" | "publish" | "reward";
 
 export type MaterialKind = "image" | "video";
 
+export type SharePlatform = "redbook" | "dianping";
+
 export interface ShareDraft {
   title: string;
   body: string;
